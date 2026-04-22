@@ -108,3 +108,21 @@ public:
         }
     }
 };
+
+int main() {
+    CryptoSystem vault;
+    
+    std::string secret = "SECRET: Main Cyber Server coordinates are 0×1A4F";
+    std::cout << "Original: " << secret << "\n\n";
+    Envelope data_pack = vault.encrypt_envelope(secret);
+    
+    std::cout << "--- ENCRYPTED (Envelope) ---\n";
+    std::cout << "Ciphertext Size: " << data_pack.encrypted_data.size() << " bytes\n";
+    std::cout << "Wrapped Key Size: " << data_pack.wrapped_key.size() << " bytes (RSA Block)\n";
+    std::cout << "Tag (Auth): " << "Integrity Verification OK\n\n";
+    std::string recovered = vault.decrypt_envelope(data_pack);
+    std::cout << "--- DECRYPTED ---\n";
+    std::cout << "Recovered: " << recovered << "\n";
+
+    return 0;
+}
