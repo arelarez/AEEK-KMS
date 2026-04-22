@@ -1,0 +1,66 @@
+### Kriptografi & Security
+*.pem
+*.key
+*.pub
+*.crt
+*.pfx
+*.vault
+*.db
+*.sqlite3
+# File salt or IV exported for testing
+*.salt
+*.iv
+
+### C++ / Compilers
+# Compilation output
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+# Final execution
+*.exe
+*.out
+*.app
+# Build directories
+build/
+dist/
+bin/
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+Makefile
+
+### Python
+# Byte-compiled / optimized / DLL
+__pycache__/
+*.py[cod]
+*$py.class
+# Virtual Environments
+venv/
+.venv/
+env/
+# Libraries
+.python-version
+.installed.cfg
+pip-log.txt
+pip-delete-this-directory.txt
+
+### OS & IDE
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+# VS Code
+.vscode/
+# CLion / PyCharm / IntelliJ
+.idea/
+cmake-build-*/
