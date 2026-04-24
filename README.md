@@ -146,3 +146,94 @@ Protocol Configuration:
 ```
 
 > Considering the use of KEK and DEK I will create a **modular variation of RSA OAEP** even though RSA is the gold standard Key Encryption Key in KMS infrastructure, RSA latency intensity is quite heavy, so in the future KMS will be *integrated by many servers for many needs*. I need to reconsider **compiling other key algorithm variations**. So, I'll probably create other modular algorithm keys for diversification. So specifically, the provisions depend on each individual's needs, 'what do you want to use this KMS for?'
+
+## Integrated ECCX25519
+
+There are several factors and reasons why I chose to replace RSA with ECC. Although RSA-2048 is also a very strong encryption method, there are some things to consider. RSA-2048 is large (256 bytes). ECC can compress it with greater strength. equivalent (Curve25519) uses a key of only 32 bytes. On the **Side Product** (e.g. mobile and IoT applications), ECC is much lighter than RSA in terms of CPU computation and battery usage efficiency. Modern protocols like Signal and TLS 1.3 prefer ECC (X25519) instead of RSA. Although this is optional, it basically depends on the protocol for which the KMS was created.
+
+In RSA, we can simply: ```Encrypt(Public_Key, Data)```. But in ECC, the curve math doesn't work that way. We can't directly encrypt large amounts of data with ECC. We need the ECDH (Elliptic Curve Deffie-Hellman) or ECIES (Elliptic Curve Integrated Encryption Scheme) method.
+
+Hybrid Encryption Key flow update (with ECCX25519):
+
+1. Client (CLI): Create a temporary ECC key (Ephemeral Key pair)
+2. Shared Secret: The client combines its temporary private key with the server's public key for shared secret distribution.
+3. Wrapping: Use the Shared Secret (after hashing) to encrypt the AES Key.
+4. Send: Client sends ```{ Ephemeral_Public_Key, Wrapped_AES_Key, Encrypted_Data }```
+So the Server will do the reverse to get back the AES Key.
+
+The method: AES Key Encryption uses Wrapping Key (In production, use AES-Key-Wrap RFC 3394, but XDR+Hash)
+
+```python
+        wrapping_key = bytes(shared_secret)
+        aes_data_key = os.urandom(32)
+        encrypted_packet = self.encrypt_aes_gcm(data, aes_data_key)
+```
+
+With the integration of the ECX25519, this architecture has achieved the level of "Perfect Forward Secrecy"
+
+- Comparison description between RSA and ECC
+
+   - In RSA If the Private Key Server is leaked in the next 5 years, the 'attacker' can describe all recorded past data.
+
+   - But in ECC (With Epheremal) I create a new key (```my_priv```) every time I send data and immediately delete it, even if the server key is leaked in the future, the attacker cannot decrypt it.past session data. They need the ```my_priv``` that has been destroyed in RAM
+
+#### Final Security Matrix
+1. Transport: mTLS 1.3
+2. Key Exchange: ECDH X25519 (Replacing RSA)
+3. Encrypted Data: AES-256-GCM
+4. Hashing: Argon2id
+
+## re-explanation: Final KMS Architecture AEEK
+
+This architecture was built using the principle of "Defense in Depth." I didn't rely on just one wall but instead created a series of layered walls, trenches, and traps.So technically why does this Hybrid Key (ECC + AES) and Distributed (Client-Side Encryption) approach frustrate existing cyber attack techniques,and why is this KMS so hard to Sniff and Penetrate and what are the other "hidden" benefits?
+
+### Why Is It So Hard to Sniff? (Anti-Wiretapping)
+
+In traditional architectures (which rely solely on SSL/HTTPS), hackers typically perform Man-in-the-Middle (MITM) attacks. They will intercept Wi-Fi connections or  spoofing SSL certificates.
+
+- In this AEEK/AEEkms Architecture (v2.0):
+
+   - Layer 1 (mTLS): Hackers cannot simply "intercept". Because the Backend server will request a certificate from the Client (CLI). If the attacker does not have valid client certificate (embedded in the obfuscated C++ binary), the connection is immediately terminated at the TCP Handshake level.
+
+  - Layer 2 (Double Encryption): Let's create a scenario like how "the attacker managed to break into Layer 1 (for example by stealing the client certificate)". What do they see through sniffing? In fact, they only see the JWE/AES binary blob that was previously encrypted, leaving a trace on the user's laptop, and the attacker cannot see the client's password because the unlock key is in ephemeral memory (Epheremal ECC) and on a secure server, the result is that the sniffed data is 100% useless "garbage data".
+
+### Why Is It So Hard to Penetrate? (Anti-Break Server)
+
+This is the biggest advantage of "Decentralized Encryption" (Client-Side Encryption). Imagine the worst-case scenario: the backend server is completely hacked. The attacker gets into the database and does ```SELECT * FROM users```.
+
+ - In *normal Architecture* Hacker can get user data, maybe password hashes, and sensitive **plaintext** data if encryption is only done on server disk.
+
+ - However, in *Hybrid Encryption Architecture*, the database only contains a "Sealed Envelope" (AES Ciphertext). The attacker cannot find a "Magic Key" in the server code to unlock all the data. Each row of data locked with different DEK (Data Encryption Key), to open one envelope, an attacker must have access to the KMS (Key Management Service) which resides on a separate physical server (HSM). The important point is that because I use ECC Epheremal, the session key for the previous communication is **lost**. The attacker cannot decipher the key.Past Traffic Logs.
+
+### Other Benefits Besides Security 
+
+Besides giving Attackers a headache, this architecture provides tremendous business and technical advantages.
+
+#### Perfect Forward Secrecy (PFS) 
+
+- at RSA If the Attacker records the Victim's internet traffic (they do it without being able to see or read it), if it takes them another 5 years for a better attack tool,  They managed to steal the Private Key Server, and opened the traffic records from 5 years ago.
+
+- The solution I created with ECC Epheremal, because the key is created suddenly (```generate_ecc_keypair```) and immediately deleted from RAM after use, The traffic will be **forever secure**. Even if the server is compromised in the future, the past keys will never be there to be stolen.
+
+#### Server Resource Savings (Cost Efficiency; Centralized vs. Distributed)
+
+- Centralized: The server must encrypt/decrypt data for 10,000 users simultaneously. The server's CPU will be overwhelmed by this process on a regular basis.
+
+- Distributed: The encryption load (AES-GCM & Argon2id) is carried out on the User's Laptop/HP (Client). The server only receives mature data, this will save cloud/server rental costs significantly.
+
+#### Legal Compliance (Compliance & GDPR)
+
+If we store banking or health data
+
+- Regulators will ask: "Can your database admin peek into the customer database?"
+
+- With this Architecture, the answer is; "No" Even the database admin who manages the client data itself will only see *Chipertext*.
+
+#### Data Integrity (Anti-Tampering)
+
+Remember the GMAC (Tag) in AES-GCM. If an attacker accidentally changes the balance of ```1,000,000``` to ```9,000,000``` in the database (without knowing the key), when the application tries to decrypt, h The result is not a messed up number, but rather ERROR: Decryption Failed
+The system will automatically know that the data has been tampered with and reject it.
+
+### Conclusion 
+
+This architecture is the highest privacy standard currently available. This KMS protects users, even from the database administrator, or "me as the author".
