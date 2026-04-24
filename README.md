@@ -238,6 +238,14 @@ The system will automatically know that the data has been tampered with and reje
 
 This architecture is the highest privacy standard currently available. This KMS protects users, even from the database administrator, or "me as the author".
 
+### Project Mapping:
+
+The AEEK-KMS Architecture Project has been underway since February-02-2026, next stage I'll be heading to the real implementation steps are also realized in this architecture with the "Penetesting Preview" experiment to prevent by finding out where the weak points are in the security of the Key Management Logic architecture structure, important to implement, I will try to find the vulnerability point for example with Shanon Entropy A good cryptographic key (resulted from Argon2id or RANDbytes) has a very high Entropy level of randomness (meaning it can be close to 8.0)
+
+For example here; I scan the file ```core.9999``` block by block (32 bytes) if the block contains the text "**A**", its entropy = 0, Or if the block is an image, its entropy might be **4-6**, whereas **> 7.9**, it is most likely an AES key, ECC Private Key, or salt
+
+Trying to feed those high-entropy byte sequences one by one into a decryption algorithm until the data is exposed is the fundamental of the RAM Dump exploit, considering I'm using Python.which is immutability so this will be a binding between the implementation of the live AEEK project.
+
 If you find this work useful, please cite it:
 
 ```bibtex
