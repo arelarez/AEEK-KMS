@@ -237,3 +237,14 @@ The system will automatically know that the data has been tampered with and reje
 ### Conclusion 
 
 This architecture is the highest privacy standard currently available. This KMS protects users, even from the database administrator, or "me as the author".
+
+If you find this work useful, please cite it:
+
+```bibtex
+@software{AEEK,
+  author = {Arel Bachtiar},
+  title = {AEEK/AEEK-KMS},
+  year = {2026},
+  url = {[AEEK-KMS](https://github.com/arelarez/AEEK-KMS)}
+}
+```
